@@ -42,7 +42,7 @@ export default function Page() {
           <Image
             alt="Screenshots of the dashboard project showing desktop version"
             src={mobilePic}
-            className="md:hidden"
+            className="block md:hidden"
           />
         </div>
       </div>

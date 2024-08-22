@@ -7,18 +7,43 @@ import { redirect } from "next/navigation";
 
 const FormSchema = z.object({
   id: z.string(),
-  customerId: z.string(),
-  amount: z.coerce.number(),
-  status: z.enum(["pending", "paid"]),
+  customerId: z.string({
+    required_error: "Please select a customer",
+  }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: "Please enter an amount greayer than $0." }),
+  status: z.enum(["pending", "paid"], {
+    required_error: "Please select an invoice status",
+  }),
   date: z.string(),
 });
 
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message: string;
+};
+
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 
-export async function createInvoice(formData: FormData) {
+export async function createInvoice(
+  prevState: State,
+  formData: FormData
+): Promise<State> {
   try {
     const rawFormData = Object.fromEntries(formData.entries());
-    const { customerId, amount, status } = CreateInvoice.parse(rawFormData);
+    const validatedFields = CreateInvoice.safeParse(rawFormData);
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: "Missing Fields. Failed to Create Invoice.",
+      };
+    }
+    const { amount, customerId, status } = validatedFields.data;
     const amountInCents = amount * 100;
     const date = new Date().toISOString().split("T")[0];
 
@@ -27,6 +52,7 @@ export async function createInvoice(formData: FormData) {
         VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
     `;
   } catch (error) {
+    console.error(error);
     return { message: "Database Error: Failed to Create Invoice." };
   }
 
@@ -34,16 +60,28 @@ export async function createInvoice(formData: FormData) {
   redirect("/dashboard/invoices");
 }
 
-export async function updateInvoice(id: string, formData: FormData) {
+export async function updateInvoice(
+  id: string,
+  prevState: State,
+  formData: FormData
+): Promise<State> {
   try {
     const rawFormData = Object.fromEntries(formData.entries());
-    const { customerId, amount, status } = CreateInvoice.parse(rawFormData);
+    const validatedFields = CreateInvoice.safeParse(rawFormData);
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: "Missing Fields. Failed to Create Invoice.",
+      };
+    }
+    const { amount, customerId, status } = validatedFields.data;
     const amountInCents = amount * 100;
     await sql`
     UPDATE invoices 
     SET customer_id=${customerId}, amount=${amountInCents}, status=${status}
     WHERE id=${id}`;
   } catch (error) {
+    console.error(error);
     return { message: "Database Error: Failed to Update Invoice." };
   }
   revalidatePath("/dashboard/invoices");
@@ -56,6 +94,7 @@ export async function deleteInvoice(id: string) {
     revalidatePath("/dashboard/invoices");
     return { message: "Deleted Invoice" };
   } catch (error) {
+    console.error(error);
     return { message: "Database Error: Failed to Delete Invoice." };
   }
 }

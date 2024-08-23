@@ -102,9 +102,9 @@ export async function deleteInvoice(id: string) {
 }
 
 export async function authenticate(
-  prevState: String | undefined,
+  prevState: string | undefined,
   formData: FormData
-): Promise<String | undefined> {
+): Promise<string | undefined> {
   try {
     const rawFormData = Object.fromEntries(formData.entries());
     await signIn("credentials", {

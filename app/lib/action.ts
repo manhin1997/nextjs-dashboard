@@ -4,6 +4,8 @@ import { sql } from "@vercel/postgres";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { signIn, signOut } from "@/auth";
+import { AuthError } from "next-auth";
 
 const FormSchema = z.object({
   id: z.string(),
@@ -97,4 +99,33 @@ export async function deleteInvoice(id: string) {
     console.error(error);
     return { message: "Database Error: Failed to Delete Invoice." };
   }
+}
+
+export async function authenticate(
+  prevState: String | undefined,
+  formData: FormData
+): Promise<String | undefined> {
+  try {
+    const rawFormData = Object.fromEntries(formData.entries());
+    await signIn("credentials", {
+      ...rawFormData,
+      redirectTo: "/dashboard",
+      redirect: true,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case "CredentialsSignin":
+          return "Invalid credentials.";
+        default:
+          return "Something went wrong.";
+      }
+    }
+    throw error;
+  }
+}
+
+export async function logOut() {
+  await signOut({ redirect: true, redirectTo: "/dashboard" });
+  revalidatePath("/dashboard");
 }
